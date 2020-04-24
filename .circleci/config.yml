@@ -1,0 +1,54 @@
+version: 2
+jobs:
+  build:
+    filters:
+      branches:
+        only:
+          - master
+    docker:
+      - image: circleci/openjdk:8-jdk
+    steps:
+      - checkout
+      - run:
+          name: Installing awscli
+          command: |
+             sudo apt-get update && sudo apt-get install wget zip unzip python2.7 python-pip -y
+             sudo pip install awscli --upgrade
+      - run:
+          name: Changing the directory to the webapp-lambda
+          command: |
+             pwd
+             cd webapp-lambda
+             sudo apt-get update
+             sudo apt install maven
+             mvn clean install
+      - run:
+          name: Zip Artifact
+          command: |
+            echo "Hello the current build number is ${CIRCLE_BUILD_NUM}"
+            pwd
+            ls -al
+            mkdir -p lambda_artifact
+            pwd
+            ls -al
+            mv ~/project/webapp-lambda/target/webapp-lambda-0.0.1-SNAPSHOT.jar lambda_artifact/
+            ls -al
+            cd lambda_artifact
+            ls -al
+            pwd
+            cd ..
+            pwd
+            ls -al
+      - run:
+          name: Upload Lambda Artifact to S3
+          command: |
+            cd lambda_artifact
+            aws s3 cp webapp-lambda-0.0.1-SNAPSHOT.jar s3://${lambdabucketName}
+      - run:
+          name: AWS Lambda Update Function Code
+          command: |
+            echo "Hello AWS Lambda Update Function Code"
+            aws lambda update-function-code --function-name ${LAMBDA_FUNC} --region ${AWS_DEFAULT_REGION} \
+            --zip-file fileb://./lambda_artifact/webapp-lambda-0.0.1-SNAPSHOT.jar 
+            echo "code deployment complete"
+      
